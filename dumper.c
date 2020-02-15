@@ -100,7 +100,7 @@ static void set_romsel(unsigned int address)
 static unsigned char read_prg_byte(unsigned int address)
 {
 	MODE_READ;
-	PRG_READ;	
+	PRG_READ;
 	set_address(address);
 	PHI2_HI;
 	set_romsel(address);
@@ -724,33 +724,87 @@ static int write_chr_flash(unsigned int address, unsigned int len, uint8_t* data
 	return ok;
 }
 
+static uint8_t read_fds_byte(int address)
+{
+	unsigned char l = address & 0xFF;
+	unsigned char h = address>>8;
+
+	PORTA = l;
+	PORTC = h;
+
+	MODE_READ;
+	PRG_READ;
+
+	_delay_us(1);
+
+	return PIND;
+}
+
 static void read_fds_send()
 {
 	LED_GREEN_ON;
+
+	uint16_t len = 65535;
+	comm_start(COMMAND_PRG_READ_RESULT, len);
 	
 	// Mimic BIOS behavior
 	write_prg_byte(0x4022, 0);
 	write_prg_byte(0x4023, 0);
 	write_prg_byte(0x4023, 0x83);
 
+	for (uint8_t i = 0; i < 34; i++)
+	{
+		read_prg_byte(0x4032);
+	}
+
 	// Reset transfer, set mode read
 	write_prg_byte(0x4025, 0x2E);
+	write_prg_byte(0x4025, 0x2F);
+	write_prg_byte(0x4025, 0x2D);
 	write_prg_byte(0x4026, 0xFF);
-	_delay_us(1);
+	
+	uint8_t status = read_prg_byte(0x4032);
+	while ((status & 0x02) != 0)
+	{
+		_delay_ms(1);
+		status = read_prg_byte(0x4032);
+	}
+
 	write_prg_byte(0x4025, 0x2E);
 	_delay_us(1);
 	
 	// Start the drive motor
 	write_prg_byte(0x4025, 0x2F);
-	_delay_us(10);
+	_delay_us(1);
 	write_prg_byte(0x4025, 0x2D);
 	_delay_us(1);
-	
-	// Enable interrupt
+
+	// Start read
 	write_prg_byte(0x4025, 0x6D);
 	
-	for (int i = 0; i < 100000; i++)
-		comm_send_byte(read_prg_byte(0x4031));
+	// Enable interrupts
+	write_prg_byte(0x4025, 0xED);
+	
+	while (1)
+	{
+		//if ((read_prg_byte(0x4030) & 0x80) == 0)
+		{
+			uint8_t b = PINF;
+			comm_send_byte(b);
+			
+			read_prg_byte(0xE1F7);
+			read_prg_byte(0x4030);
+			
+			_delay_us(1);
+			//write_prg_byte(0x4024, b);
+
+			len--;
+			if (len == 0)
+				break;
+		}
+	}
+
+	write_prg_byte(0x4025, 0x2E);
 
 	LED_GREEN_OFF;
 }
@@ -778,7 +832,7 @@ static void init_ports()
 {
 	DDRB |= (1 << 6) | (1 << 7); // LEDS
 	DDRF = 0b10110111; // CPU R/W, IRQ, PPU /RD, PPU /A13, CIRAM /CE, PPU /WR, /ROMSEL, PHI2
-	PORTF = 0b11111111; // CPU R/W, IRQ, PPU /RD, PPU /A13, CIRAM /CE, PPU /WR, /ROMSEL, PHI2	
+	PORTF = 0b11111111; // CPU R/W, IRQ, PPU /RD, PPU /A13, CIRAM /CE, PPU /WR, /ROMSEL, PHI2
 	DDRE &= ~(1<<2); // CIRAM A10
 	PORTE |= 1<<2; // CIRAM A10
 	MODE_READ;
@@ -982,7 +1036,7 @@ int main (void)
 					break;
 				
 				case COMMAND_FDS_READ_REQUEST:
-					read_fds_send(address);
+					read_fds_send();
 					break;
 				
 				case COMMAND_JTAG_SETUP:
