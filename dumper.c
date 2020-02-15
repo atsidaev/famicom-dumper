@@ -53,9 +53,9 @@ static void (*jump_to_bootloader)(void) = (void*)0xF800;
 ISR(USART0_RX_vect)
 {
 	unsigned char b;
-	while (UCSR0A & (1<<RXC0))
+	while (UCSRA & (1<<RXC))
 	{
-		b = UDR0;
+		b = UDR;
 		comm_proceed(b);
 	}
 }
@@ -821,7 +821,7 @@ int main (void)
 	
 	while (1)
 	{
-		TCCR1A |= (1<<COM1C1) | (1<<COM1B1) | (1<<WGM10);
+		TCCR1A |= (1<<COM1A1) | (1<<COM1B1) | (1<<WGM10);
 		TCCR1B |= (1<<CS10);
 		if (t++ >= 10000)
 		{
@@ -840,7 +840,7 @@ int main (void)
 				if (led_bright2 <= 20)
 				{
 					if (led_bright2 > 10) led_bright2 = 20 - led_bright2;
-					OCR1C = led_bright2*2;
+					OCR1A = led_bright2*2;
 				}
 			}
 			t = 0;
@@ -850,7 +850,7 @@ int main (void)
 		{
 			comm_recv_done = 0;
 			t = led_down = led_bright = 0;
-			TCCR1A = OCR1B = OCR1C = 0;
+			TCCR1A = OCR1B = OCR1A = 0;
 			
 			switch (comm_recv_command)
 			{
@@ -1006,7 +1006,7 @@ int main (void)
 					break;
 				case COMMAND_BOOTLOADER:
 					cli();
-					MCUCSR = 0;
+					MCUSR = 0;
 					jump_to_bootloader();
 			}
 		}

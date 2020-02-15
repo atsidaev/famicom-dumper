@@ -5,21 +5,21 @@
 void USART_init(void)
 {
   unsigned int bd = (F_CPU / (16UL * UART_BAUD)) - 1;
-  UBRR0L = bd & 0xFF;
-  UBRR0H = bd >> 8;
+  UBRRL = bd & 0xFF;
+  UBRRH = bd >> 8;
 
-  UCSR0B = _BV(TXEN0) | _BV(RXEN0) | _BV(RXCIE0); /* tx/rx enable */
+  UCSRB = _BV(TXEN) | _BV(RXEN) | _BV(RXCIE); /* tx/rx enable */
 //  UCSRC = 1<<URSEL|1<<UCSZ0|1<<UCSZ1;
-  UCSR0C |= /*_BV(UMSEL0) |*/ _BV(UCSZ01) | _BV(UCSZ00);
+  UCSRC |= /*_BV(UMSEL0) |*/ _BV(UCSZ1) | _BV(UCSZ0);
   //UCSRA = _BV(U2X);
 }
 
 void USART_TransmitByte( unsigned char data )
 {
 	/* Wait for empty transmit buffer */
-	while ( !( UCSR0A & (1<<UDRE0)) );
+	while ( !( UCSRA & (1<<UDRE)) );
 	/* Put data into buffer, sends the data */
-	UDR0 = data;
+	UDR = data;
 }
 
 void USART_TransmitHex( unsigned char data )
@@ -28,10 +28,10 @@ void USART_TransmitHex( unsigned char data )
 	char ho = (h < 10) ? (h+'0') : (h+'A'-10);
 	unsigned char l = data & 0xF;
 	char lo = (l < 10) ? (l+'0') : (l+'A'-10);
-	while ( !( UCSR0A & (1<<UDRE0)) );
-	UDR0 = ho;
-	while ( !( UCSR0A & (1<<UDRE0)) );
-	UDR0 = lo;
+	while ( !( UCSRA & (1<<UDRE)) );
+	UDR = ho;
+	while ( !( UCSRA & (1<<UDRE)) );
+	UDR = lo;
 }
 
 void USART_TransmitText(char* data)
@@ -39,9 +39,9 @@ void USART_TransmitText(char* data)
 	while (*data != 0)
 	{
 		/* Wait for empty transmit buffer */
-		while ( !( UCSR0A & (1<<UDRE0)) );
+		while ( !( UCSRA & (1<<UDRE)) );
 		/* Put data into buffer, sends the data */
-		UDR0 = *data;
+		UDR = *data;
 		data++;
 	}
 }
