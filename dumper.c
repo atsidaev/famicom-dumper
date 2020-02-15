@@ -724,6 +724,37 @@ static int write_chr_flash(unsigned int address, unsigned int len, uint8_t* data
 	return ok;
 }
 
+static void read_fds_send()
+{
+	LED_GREEN_ON;
+	
+	// Mimic BIOS behavior
+	write_prg_byte(0x4022, 0);
+	write_prg_byte(0x4023, 0);
+	write_prg_byte(0x4023, 0x83);
+
+	// Reset transfer, set mode read
+	write_prg_byte(0x4025, 0x2E);
+	write_prg_byte(0x4026, 0xFF);
+	_delay_us(1);
+	write_prg_byte(0x4025, 0x2E);
+	_delay_us(1);
+	
+	// Start the drive motor
+	write_prg_byte(0x4025, 0x2F);
+	_delay_us(10);
+	write_prg_byte(0x4025, 0x2D);
+	_delay_us(1);
+	
+	// Enable interrupt
+	write_prg_byte(0x4025, 0x6D);
+	
+	for (int i = 0; i < 100000; i++)
+		comm_send_byte(read_prg_byte(0x4031));
+
+	LED_GREEN_OFF;
+}
+
 void get_mirroring()
 {
 	comm_start(COMMAND_MIRRORING_RESULT, 4);
@@ -949,7 +980,11 @@ int main (void)
 					if (write_chr_flash(address, length, (uint8_t*)&recv_buffer[4]))
 						comm_start(COMMAND_CHR_WRITE_DONE, 0);
 					break;
-					
+				
+				case COMMAND_FDS_READ_REQUEST:
+					read_fds_send(address);
+					break;
+				
 				case COMMAND_JTAG_SETUP:
 					jtag_setup();
 					comm_start(COMMAND_JTAG_RESULT, 1);
@@ -974,6 +1009,6 @@ int main (void)
 					MCUCSR = 0;
 					jump_to_bootloader();
 			}
-		}		
+		}
 	}
 }
